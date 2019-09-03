@@ -1,4 +1,3 @@
-
 import edu.princeton.cs.algs4.*;
 
 public class Percolation {
@@ -22,28 +21,20 @@ public class Percolation {
         }
 
         this.n = n;
-        sys = new WeightedQuickUnionUF(n);
+        sys = new WeightedQuickUnionUF(n*n);
         id = new long [n*n + 10];      
         sites = new int [n + 1][n + 1];        
         id [0] = -1;
-        
-        for (int row = 0; row < n; row++)
+        int count = 0;
+        for (int row = 1; row <= n; row++)
         {
-            for (int col = 0; col < n; col++)
+            for (int col = 1; col <= n; col++)
             {
                 sites[row][col] = Blocked;
-                int num = row*n + col + 1;
-                id[num] = num;
+                id[count] = count;
+                count++;
             }
         }
-        
-        int lastrow = (n-1)*n + 1;
-        for (int col = 0; col < n; col++)
-        {
-        	id[col] = 0;
-        	id[lastrow + col] = n;
-        }
-        
     }
 
     // opens the site (row, col) if it is not open already
@@ -52,7 +43,7 @@ public class Percolation {
     	check(row);
     	check(col);
     	
-        sites[row][col] = Opened;
+    	sites[row][col] = Opened;
         numberOfOpenSites++;
         
         int p = GetSiteID(row, col);
@@ -60,7 +51,6 @@ public class Percolation {
         // Find the root id of p
         // Union p with 4 nearby site
         // Check if p connect with top, set p is full
-        // If ID before union == n-1 and site isFull => percolation
         
         int beforeRoot = sys.find(p);
         
@@ -83,33 +73,56 @@ public class Percolation {
         if (above >= 0)
         {
         	sys.union(p, above);
+        	if (GetRow(above) == 1)
+        	{
+        	    setFullFrom(above);
+        	}
         }
         
         if (below >= 0)
         {
         	sys.union(p, below);
         }
+        
+    	if (row == 1)
+    	{
+    		sites[row][col] = Full;
+    	    setFullFrom(beforeRoot);
+    	}
 
-        int afterRoot = sys.find(p);
-        // How to know the site is connected with other site?
-        
-        // How to know the site is full ?
-        if (beforeRoot == 0)
-        {
-        	sites[col][row] = Full;
-        }
-        
-        if (beforeRoot == afterRoot)
-        {
-        	percolation = true;
-        }
+
     }
-
+    
+    
+    void setFullFrom(int root)
+    {
+    	int row = GetRow(root);
+    	int col = GetCol(root);
+    	
+    	if (!isOpen(row, col))
+    	{
+    		return;
+    	}
+    	
+    	for (int i = 1; i <= n; i++)
+    	{        		
+    		for (int j = 1; j <= n; j++)
+    		{
+    			int id = GetSiteID(i, j);
+    			if (isOpen(i, j) && sys.connected(root, id))
+    			{
+    				sites[i][j] = Full;
+    			}
+    		}
+    	}
+    }
+    
     // is the site (row, col) open?
     public boolean isOpen(int row, int col)
     {
     	check(row);
     	check(col);
+    	
         if (sites[row][col] == Opened || sites[row][col] == Full )
         {
             return true;
@@ -121,8 +134,7 @@ public class Percolation {
     // is the site (row, col) full?
     public boolean isFull(int row, int col)
     {
-    	check(row);
-    	check(col);
+
         if (sites[row][col] == Full)
         {
             return true;
@@ -148,16 +160,11 @@ public class Percolation {
     // Change site to specific row
     public int GetRow(int id)
     {
-        int row = id % n - 1;
+        int row = id / n + 1;
 
-        if (row == -1)
+        if (row > n)
         {
-            row = n - 1;
-        }
-
-        if (row < 0 || row >= n)
-        {
-            return -1;
+            row = n;
         }
 
         return row;
@@ -166,29 +173,25 @@ public class Percolation {
     // Change site to specific col
     public int GetCol(int id)
     {
-        int row = GetRow(id);
-
-        if (row < -1)
-        {
-            return -1;
-        }
-
-        int col = id - row * n - 1;
-
-        if (col < 0 || col > n)
-        {
-            return -1;
-        }
-
-        return col;
+    	if (id != 0 && id % n == 0)
+    	{
+    		return n;
+    	}
+    		
+        return id%n;
     }
     
     public int GetSiteID(int row, int col)
     {
-    	check(row);
-    	check(col);
+    	row=row-1;
+    	col=col-1;
     	
-    	return row*n + col + 1;
+    	if (row < 0 || row >= n || col < 0 || col >= n)
+    	{
+    		return -1;
+    	}
+    	
+    	return row*n + col;
     }
     
     public int GetLeftOpenSiteID(int row, int col)
@@ -196,10 +199,13 @@ public class Percolation {
     	int newrow = row;
     	int newcol = col - 1;
     	
-    	if (isOpen(newrow, newcol))
+    	int site = GetSiteID(newrow, newcol);
+    	if (site >= 0)
     	{
-    		int site = GetSiteID(newrow, newcol);
-    		return site;
+    		if (isOpen(newrow, newcol))
+        	{
+        		return site;
+        	}
     	}
     	
     	return -1;
@@ -209,13 +215,16 @@ public class Percolation {
     {
     	int newrow = row;
     	int newcol = col + 1;
-    	
-    	if (isOpen(newrow, newcol))
+    		
+    	int site = GetSiteID(newrow, newcol);
+    	if (site >= 0)
     	{
-    		int site = GetSiteID(newrow, newcol);
-    		return site;
+    		if (isOpen(newrow, newcol))
+        	{
+        		return site;
+        	}
     	}
-    	
+
     	return -1;
     }
     
@@ -224,10 +233,13 @@ public class Percolation {
     	int newrow = row - 1;
     	int newcol = col;
     	
-    	if (isOpen(newrow, newcol))
+    	int site = GetSiteID(newrow, newcol);
+    	if (site >= 0)
     	{
-    		int site = GetSiteID(newrow, newcol);
-    		return site;
+    		if (isOpen(newrow, newcol))
+        	{
+        		return site;
+        	}
     	}
     	
     	return -1;
@@ -238,10 +250,13 @@ public class Percolation {
     	int newrow = row - 1;
     	int newcol = col;
     	
-    	if (isOpen(newrow, newcol))
+    	int site = GetSiteID(newrow, newcol);
+    	if (site >= 0)
     	{
-    		int site = GetSiteID(newrow, newcol);
-    		return site;
+    		if (isOpen(newrow, newcol))
+        	{
+        		return site;
+        	}
     	}
     	
     	return -1;
